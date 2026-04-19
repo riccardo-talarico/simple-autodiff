@@ -79,6 +79,13 @@ class Value():
             raise ValueError(f"Cannot add values with different shapes: operand 1 has shape {self.shape}, operand 2 has {other.shape}")
         return Value(self.value+other.value)
 
+    def __sub__(self, other):
+        if other.shape != self.shape:
+            raise ValueError(f"Cannot subtract values with different shapes: operand 1 has shape {self.shape}, operand 2 has {other.shape}")
+        return Value(self.value-other.value)
+    
+    def __matmul__(self, other):
+        return Value(self.value @ other.value)
 
 if __name__ == '__main__':
     v = Value(np.array([5]))
