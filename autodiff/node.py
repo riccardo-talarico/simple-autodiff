@@ -1,5 +1,5 @@
 from value import Value
-import numpy as np
+from typing import Callable, List
 
 class Node(object):
     def __init__(self, requires_grad: bool):
@@ -10,11 +10,11 @@ class Node(object):
         self.value: Value | None = None
         self.inputs = None
 
-        self.local_grad : list[Value] = []
+        self.local_grad : List[Value] = []
         self.upstream_grad : Value = Value(0)
         self.inputs = None
 
-    def get_inputs(self) -> list[Value] | None:
+    def get_inputs(self) -> List[Value] | None:
         """
         Gets the inputs from the parent nodes
         """
@@ -32,6 +32,30 @@ class Node(object):
         """
         for i,parent in enumerate(self.parents):
             parent.upstream_grad += self.local_grad[i] 
+
+
+class CustomNode(Node):
+    def __init__(
+            self, 
+            requires_grad:bool, 
+            forward_op: Callable[[List[Value]],Value], 
+            backward_op: Callable[[List[Value], Value], List[Value]]
+            ):
+        self.forward_op = forward_op
+        self.backward_op = backward_op
+        super().__init__(requires_grad)
+    
+    def forward(self):
+        inputs = self.get_inputs()
+        self.value = self.forward_op(inputs) 
+        return self.value
+    
+    def backward(self):
+        if self.requires_grad:
+            self.local_grad = self.backward_op(self.inputs, self.upstream_grad) 
+        super().backward()
+        return self.local_grad
+
 
 
 class AddNode(object):
@@ -91,3 +115,13 @@ class MatrixMultNode(Node):
         super().backward()
 
         return self.local_grad
+    
+class DataNode(Node):
+    def __init__(self, value, requires_grad = True):
+        super().__init__(requires_grad)
+        self.value = value
+    
+    def backward(self):
+        self.local_grad = self.upstream_grad if self.requires_grad else self.local_grad
+        return self.local_grad
+
