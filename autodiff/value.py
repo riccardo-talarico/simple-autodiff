@@ -3,6 +3,9 @@ import numpy as np
 ACCEPTED_TYPES = int | float | np.float64 | list | np.ndarray
 
 class Value():
+
+    ERROR = np.nan
+
     def __init__(self, value: ACCEPTED_TYPES):
         self.value = self._adjust_shape(value)
         self.shape = self.value.shape
