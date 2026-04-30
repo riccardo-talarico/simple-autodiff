@@ -89,6 +89,14 @@ class Value():
     
     def __matmul__(self, other):
         return Value(self.value @ other.value)
+    
+    def __mult__(self, other):
+        if other.shape != self.shape:
+            raise ValueError(f"Cannot multiply-elementwise values with different shapes: operand 1 has shape {self.shape}, operand 2 has {other.shape}")
+        return Value(self.value * other.value)
+    
+    def __eq__(self, other):
+        return self.value == other.value
 
 if __name__ == '__main__':
     v = Value(np.array([5]))
