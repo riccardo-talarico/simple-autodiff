@@ -2,7 +2,7 @@ from value import Value
 from typing import Callable, List
 
 class Node(object):
-    def __init__(self, requires_grad: bool):
+    def __init__(self, requires_grad: bool=True):
         self.parents = []
         self.children = []
 
@@ -26,6 +26,9 @@ class Node(object):
 
         return self.inputs
     
+    def forward(self):
+        pass
+
     def backward(self):
         """
         Updates the upstream gradient of the parents with the corresponding local gradient.
@@ -38,8 +41,8 @@ class CustomNode(Node):
     def __init__(
             self, 
             requires_grad:bool, 
-            forward_op: Callable[[List[Value]],Value], 
-            backward_op: Callable[[List[Value], Value], List[Value]]
+            forward_op: Callable[[Node,List[Value]],Value], 
+            backward_op: Callable[[Node,List[Value], Value], List[Value]]
             ):
         self.forward_op = forward_op
         self.backward_op = backward_op
@@ -47,18 +50,18 @@ class CustomNode(Node):
     
     def forward(self):
         inputs = self.get_inputs()
-        self.value = self.forward_op(inputs) 
+        self.value = self.forward_op(self,inputs) 
         return self.value
     
     def backward(self):
         if self.requires_grad:
-            self.local_grad = self.backward_op(self.inputs, self.upstream_grad) 
+            self.local_grad = self.backward_op(self,self.inputs, self.upstream_grad) 
         super().backward()
         return self.local_grad
 
 
 
-class AddNode(object):
+class AddNode(Node):
     def forward(self):
 
         x,y = self.get_inputs()
@@ -94,6 +97,25 @@ class SubNode(Node):
         if self.requires_grad:
             self.local_grad = [dx, dy] 
         # updates the parents grad
+        super().backward()
+        return self.local_grad
+    
+
+class MultNode(Node):
+    def forward(self):
+        x,y = self.get_inputs()
+        self.x = x
+        self.y = y
+        self.value = x*y
+        return self.value
+    
+    def backward(self):
+        # upstream_grad = dL/dz
+        upstream_grad = self.get_upstream_grad()
+        dx = self.y * upstream_grad # [dz/dx * dL/dz] 
+        dy = self.x * upstream_grad # [dz/dy * dL/dz]
+        if self.requires_grad:
+            self.local_grad = [dx, dy]
         super().backward()
         return self.local_grad
 
