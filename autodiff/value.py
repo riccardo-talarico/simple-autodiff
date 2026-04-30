@@ -90,7 +90,7 @@ class Value():
     def __matmul__(self, other):
         return Value(self.value @ other.value)
     
-    def __mult__(self, other):
+    def __mul__(self, other):
         if other.shape != self.shape:
             raise ValueError(f"Cannot multiply-elementwise values with different shapes: operand 1 has shape {self.shape}, operand 2 has {other.shape}")
         return Value(self.value * other.value)
