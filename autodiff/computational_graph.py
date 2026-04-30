@@ -97,7 +97,9 @@ class ComputationalGraph(object):
                 outputs.append(out)
         if len(outputs) == 1:
             outputs = outputs[0]
-        return Value(outputs)
+        if len(outputs) == 0:
+            return out
+        return Value([out.value for out in outputs])
     
     def backward(self) -> List[Value]:
         """
