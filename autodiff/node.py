@@ -5,12 +5,13 @@ class Node(object):
     def __init__(self, requires_grad: bool=True):
         self.parents = []
         self.children = []
+        self.shape = None
 
         self.requires_grad = requires_grad
         self.value: Value | None = None
         self.inputs = None
 
-        self.local_grad : List[Value] = []
+        self.local_grad : List[Value] | Value = []
         self.upstream_grad : Value = Value(0)
         self.inputs = None
 
@@ -33,8 +34,12 @@ class Node(object):
         """
         Updates the upstream gradient of the parents with the corresponding local gradient.
         """
+        
         for i,parent in enumerate(self.parents):
-            parent.upstream_grad += self.local_grad[i] 
+            if parent.upstream_grad is Value.ZERO:
+                parent.upstream_grad = self.local_grad[i]
+            else:
+                parent.upstream_grad = parent.upstream_grad + self.local_grad[i] 
 
 
 class CustomNode(Node):
@@ -111,9 +116,8 @@ class MultNode(Node):
     
     def backward(self):
         # upstream_grad = dL/dz
-        upstream_grad = self.get_upstream_grad()
-        dx = self.y * upstream_grad # [dz/dx * dL/dz] 
-        dy = self.x * upstream_grad # [dz/dy * dL/dz]
+        dx = self.y * self.upstream_grad # [dz/dx * dL/dz] 
+        dy = self.x * self.upstream_grad # [dz/dy * dL/dz]
         if self.requires_grad:
             self.local_grad = [dx, dy]
         super().backward()
@@ -129,9 +133,9 @@ class MatrixMultNode(Node):
     
     def backward(self):
         # upstream_grad = dL/dz
-        dA = self.upstream_grad @ self.B.T # [dz/dA * dL/dz] 
-        dB = self.A.T @ self.upstream_grad # [dz/dB * dL/dz]
-        
+        dA = self.upstream_grad @ self.B.transpose() # [dz/dA * dL/dz] 
+        dB = self.A.transpose() @ self.upstream_grad # [dz/dB * dL/dz]
+
         if self.requires_grad:
             self.local_grad = [dA, dB]
         super().backward()
@@ -139,7 +143,7 @@ class MatrixMultNode(Node):
         return self.local_grad
     
 class DataNode(Node):
-    def __init__(self, value, requires_grad = True):
+    def __init__(self, value : Value, requires_grad = True):
         super().__init__(requires_grad)
         self.value = value
     
