@@ -6,21 +6,32 @@ import numpy as np
 class Layer(object):
     def __init__(self):
         self.nodes = []
-        self.parameters = []
+        self.parameters : List[DataNode] = []
 
-    def build(self, input_nodes: List[Node], graph: ComputationalGraph) -> Node:
+    def build(self, input_node: Node, graph: ComputationalGraph) -> Node:
         """
         Attaches the input nodes to the layer.
         It then returns the output node of the layer
         
         Args:
-            input_nodes (List[Node]): list of input nodes to use as parents to the layer.
+            input_node ([Node]): input node to use as parent to the layer.
             graph (ComputationalGraph): the computational graph on which you want to add the layer.
 
         Returns:
             (Node) : output node of the layer. 
         """
         return Node(False)
+    
+    def check_input(self, input : Node) -> bool:
+        """
+        Checks if the input node is compatible with the layer expected input shape.
+
+        Args:
+            input (Node): input node that will be the parent of the layer.
+        Returns:
+            (bool): True if the input is compatible
+        """
+        return True
 
 
 class Linear(Layer):
@@ -41,9 +52,8 @@ class Linear(Layer):
         self.addition_node = AddNode()
         self.output_node = self.addition_node
 
-    def check_init_values_shape(self,init_values):
-        #TODO: implement the check
-        pass
+    def check_input(self, input : Node):
+        return input.shape == self.in_shape
 
     def rand_init(self, in_shape, out_shape) -> Tuple[Value,Value]:
         self.matrix_shape = (out_shape[0], in_shape[0])
@@ -75,58 +85,25 @@ def forward_relu(self: Node, input: List[Value]):
     return Value(np.maximum(0,input.value))
 
 def backward_relu(self:Node, input:List[Value], upstream_grad:Value):
-    return upstream_grad * self.mask
+    return [upstream_grad * self.mask]
 
 class ReLu(Layer):
     def __init__(self, shape):
-        self.shape = shape
+        self.in_shape = shape
         self.relu = CustomNode(
             requires_grad=True,
             forward_op = forward_relu,
             backward_op = backward_relu
             )
         self.output_node = self.relu
+        self.output_node.shape = shape
+        self.parameters = []
 
     def build(self, input_node: Node, graph: ComputationalGraph):
         graph.add_edge(input_node, self.relu)
         graph.add_node(self.relu)
         return self.output_node
     
-
-def forward_mean(self, input:List[Value]):
-    self.x = input[0]
-    self.N = np.prod(self.x.shape)
-    return Value(np.sum(self.x.value) / self.N)
-
-def backward_mean(self, inputs:List[Value], upstream_grad:Value):
-    return [upstream_grad * Value(np.ones_like(self.x.value) * (1/self.N))]
-
-class MeanSquaredError(Layer):
-    def __init__(self):
-        # Placeholder value of -1 for the label
-        self.label_node = DataNode(Value(-1), requires_grad=False)
-        self.sub = SubNode()
-        self.mean = CustomNode(
-            requires_grad=True,
-            forward_op=forward_mean,
-            backward_op= backward_mean
-        )
-        self.squared = MultNode()
-        self.output_node = self.mean
-    
-    def build(self, input_node:Node, graph:ComputationalGraph):
-        graph.add_edge(input_node, self.sub)
-        graph.add_edge(self.label_node, self.sub)
-        graph.add_edge(self.sub,self.squared)
-        graph.add_edge(self.sub,self.squared)
-        graph.add_edge(self.squared, self.mean)
-
-        graph.add_nodes([self.label_node,self.mean,self.squared,self.sub])
-        return self.output_node
-    
-    def add_label_value(self, value):
-        self.label_node.value = value
-
 
 if __name__ == '__main__':
     g = ComputationalGraph()
@@ -139,6 +116,3 @@ if __name__ == '__main__':
     relu = ReLu((1,1))
     relu_out = relu.build(lin_out, g)
     assert g.forward() == Value(0)
-    mse = MeanSquaredError()
-    mse.build(relu_out, g)
-    assert g.forward() == Value(1)
