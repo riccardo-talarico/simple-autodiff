@@ -5,6 +5,7 @@ ACCEPTED_TYPES = int | float | np.float64 | list | np.ndarray
 class Value():
 
     ERROR = np.nan
+    ZERO = np.float64(None)
 
     def __init__(self, value: ACCEPTED_TYPES):
         self.value = self._adjust_shape(value)
@@ -74,6 +75,11 @@ class Value():
         else:
             return [self._convert_to_float64(el) for el in data]
 
+
+    def transpose(self):
+        return Value(self.value.T)
+
+
     def __str__(self):
         return f"{self.value}"
     
@@ -92,6 +98,8 @@ class Value():
     
     def __mul__(self, other):
         if other.shape != self.shape:
+            if other.shape == (1,1) or self.shape==(1,1):
+                return Value(self.value * other.value)
             raise ValueError(f"Cannot multiply-elementwise values with different shapes: operand 1 has shape {self.shape}, operand 2 has {other.shape}")
         return Value(self.value * other.value)
     
