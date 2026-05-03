@@ -95,13 +95,11 @@ class ComputationalGraph(object):
             out = node.forward()
             if node in self.output_nodes:
                 outputs.append(out)
-        if len(outputs) == 1:
-            outputs = outputs[0]
         if len(outputs) == 0:
             return out
         return Value([out.value for out in outputs])
     
-    def backward(self) -> List[Value]:
+    def backward(self, grad_init: bool = True) -> List[Value]:
         """
         Computes the backward pass of the graph.
 
@@ -116,9 +114,17 @@ class ComputationalGraph(object):
                 return []
         outputs = []
         for node in reversed(self.nodes):
-            if node in self.output_nodes:
-                node.upstream_grad = 1
+            if node in self.output_nodes and grad_init:
+                node.upstream_grad = Value(1)
             out = node.backward()
             if node in self.input_nodes:
                 outputs.append(out)
         return outputs
+    
+    def zero_grad(self):
+        """
+        Zeroes the gradients of all nodes.
+        """
+        for node in self.nodes:
+            node.local_grad = Value.ZERO
+            node.upstream_grad = Value.ZERO
