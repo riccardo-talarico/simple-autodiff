@@ -1,7 +1,8 @@
 from computational_graph import *
 from typing import Tuple
-from node import DataNode, MatrixMultNode, AddNode, CustomNode, SubNode, MultNode
+from node import DataNode, MatrixMultNode, AddNode, CustomNode
 import numpy as np
+
 
 class Layer(object):
     def __init__(self):
@@ -35,15 +36,22 @@ class Layer(object):
 
 
 class Linear(Layer):
-    def __init__(self, in_shape, out_shape, init_values: Tuple[Value,Value] | None = None):
+    def __init__(self, in_shape, out_shape, init_values: Tuple[Value,Value] | None = None, init_mode='random'):
         
         self.out_shape = out_shape
         self.in_shape = in_shape
         if init_values:
             self.check_init_values_shape(init_values)
-
-        W, b = self.rand_init(in_shape, out_shape) if not init_values else init_values
-        
+        if init_values:
+            W,b = init_values
+        else:
+            if init_mode == 'random':
+                W, b = self.rand_init(in_shape, out_shape)
+            elif init_mode == 'he':
+                W,b = self.he_init(in_shape, out_shape) 
+            else:
+                print("Warning: unrecognized init_mode: {init_mode}. Defaulting to random.")
+                W,b = self.rand_init(in_shape, out_shape)
         self.weight_matrix = DataNode(W, requires_grad = True)
         self.bias = DataNode(b, requires_grad = True)
         self.parameters = [self.weight_matrix, self.bias]
@@ -54,6 +62,15 @@ class Linear(Layer):
 
     def check_input(self, input : Node):
         return input.shape == self.in_shape
+    
+    def he_init(self, in_shape, out_shape) -> Tuple[Value,Value]:
+        self.matrix_shape = (out_shape[0], in_shape[0])
+        self.bias_shape = out_shape
+        fan_in = self.matrix_shape[0]
+        std = (2.0 / fan_in) ** 0.5
+        W = np.random.randn(*self.matrix_shape) * std
+        b = np.zeros(self.bias_shape)
+        return W,b
 
     def rand_init(self, in_shape, out_shape) -> Tuple[Value,Value]:
         self.matrix_shape = (out_shape[0], in_shape[0])
@@ -79,6 +96,20 @@ class Linear(Layer):
         return self.output_node
 
 
+class ActivationLayer(Layer):
+    def __init__(self, shape):
+        self.in_shape = shape
+        self.output_node = Node(True)
+        self.output_node.shape = shape
+        self.parameters = []
+    
+    def build(self, input_node: Node, graph: ComputationalGraph):
+        graph.add_edge(input_node, self.output_node)
+        graph.add_node(self.output_node)
+        return self.output_node
+
+
+
 def forward_relu(self: Node, input: List[Value]):
     input = input[0]
     self.mask = Value(input.value > 0)
@@ -87,23 +118,40 @@ def forward_relu(self: Node, input: List[Value]):
 def backward_relu(self:Node, input:List[Value], upstream_grad:Value):
     return [upstream_grad * self.mask]
 
-class ReLu(Layer):
+class ReLu(ActivationLayer):
     def __init__(self, shape):
-        self.in_shape = shape
+        super().__init__(shape)
         self.relu = CustomNode(
             requires_grad=True,
             forward_op = forward_relu,
             backward_op = backward_relu
             )
         self.output_node = self.relu
-        self.output_node.shape = shape
-        self.parameters = []
-
-    def build(self, input_node: Node, graph: ComputationalGraph):
-        graph.add_edge(input_node, self.relu)
-        graph.add_node(self.relu)
-        return self.output_node
     
+
+def forward_softmax(self:Node, input: List[Value]):
+    input = input[0]
+    input_shifted = input.value - np.max(input.value)
+    self.exp = np.exp(input_shifted)
+    self.softmax = self.exp / np.sum(self.exp)
+    return Value(self.softmax)
+    
+# vectorized formula is equivalent to Jacobian * upstream_gradient
+def backward_softmax(self:Node, input: List[Value], upstream_grad:Value):
+    upstream = upstream_grad.value
+    return [Value(self.softmax * (upstream - np.sum(upstream * self.softmax)))]
+
+# softmax(x_i) = e^x_i / sum_j (e^x_j)
+class SoftMax(ActivationLayer):
+    def __init__(self, shape):
+        super().__init__(shape)
+        self.softmax = CustomNode(
+            requires_grad=True,
+            forward_op = forward_softmax,
+            backward_op = backward_softmax
+            )
+        self.output_node = self.softmax
+
 
 if __name__ == '__main__':
     g = ComputationalGraph()
