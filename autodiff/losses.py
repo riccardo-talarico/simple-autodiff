@@ -13,6 +13,13 @@ class Loss():
     def add_label_value(self, value : Value):
         self.label_node.value = value
 
+    def forward(self):
+        return self.graph.forward()
+
+    def backward(self):
+        self.graph.zero_grad()
+        return self.graph.backward()
+
 
 
 
@@ -38,7 +45,6 @@ class MeanSquaredError(Loss):
         self.output_node = self.mean
     
     def build(self, input_node:Node):
-        #self.graph.add_node(input_node)
         self.graph.add_edge(input_node, self.sub)
         self.graph.add_edge(self.label_node, self.sub)
         self.graph.add_edge(self.sub,self.squared)
@@ -48,10 +54,36 @@ class MeanSquaredError(Loss):
         self.graph.output_nodes.add(self.mean)
         
         return self.output_node
-    
-    def forward(self):
-        return self.graph.forward()
 
-    def backward(self):
-        self.graph.zero_grad()
-        return self.graph.backward()
+
+def forward_ce(self: Node, input:List[Value]):
+    self.y = input[0].value
+    self.p = input[1].value
+    self.cross_entropy = np.sum(self.y * np.log(self.p))
+    return Value(self.cross_entropy)
+
+def backward_ce(self:Node, inputs:List[Value], upstream_grad:Value):
+    # softmax and sigmoid optimization
+    return [Value(self.p - self.y), Value(-1)]
+
+# L = - y log y + (1-y)log(1-y)
+class CrossEntropy(Loss):
+    """
+    Note: requires sigmoid or softmax activation functions
+    """
+    def __init__(self):
+        super().__init__()
+        self.cross_entropy_node = CustomNode(
+            requires_grad=True,
+            forward_op=forward_ce,
+            backward_op= backward_ce
+        )
+        self.output_node = self.cross_entropy_node
+    
+    def build(self, input_node:Node):
+        self.graph.add_edge(self.label_node, self.cross_entropy_node)
+        self.graph.add_edge(input_node, self.cross_entropy_node)
+        self.graph.add_node(self.cross_entropy_node, is_output=True)
+        return self.output_node
+    
+
