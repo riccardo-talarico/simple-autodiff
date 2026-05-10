@@ -1,5 +1,5 @@
-from computational_graph import *
-from node import DataNode, SubNode, CustomNode, MultNode
+from autodiff.computational_graph import *
+from autodiff.node import DataNode, SubNode, CustomNode, MultNode
 import numpy as np
 
 
@@ -64,7 +64,7 @@ def forward_ce(self: Node, input:List[Value]):
 
 def backward_ce(self:Node, inputs:List[Value], upstream_grad:Value):
     # softmax and sigmoid optimization
-    return [Value(self.p - self.y), Value(-1)]
+    return [Value(self.p - self.y), Value(self.p - self.y)]
 
 # L = - y log y + (1-y)log(1-y)
 class CrossEntropy(Loss):
