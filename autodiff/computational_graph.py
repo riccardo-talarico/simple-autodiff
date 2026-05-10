@@ -1,7 +1,7 @@
-from node import Node
+from autodiff.node import Node
 from typing import List, Set
 from graphlib import TopologicalSorter
-from value import Value
+from autodiff.value import Value
 
 
 class ComputationalGraph(object):

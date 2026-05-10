@@ -1,4 +1,4 @@
-from value import Value
+from autodiff.value import Value
 from typing import Callable, List
 
 class Node(object):
