@@ -117,6 +117,3 @@ pip install -r requirements.txt
 
 - numpy
 - matplotlib
-- neural network internals
-
-rather than relying exclusively on high-level frameworks.
