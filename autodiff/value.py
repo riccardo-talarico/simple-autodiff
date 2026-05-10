@@ -1,6 +1,6 @@
 import numpy as np
 
-ACCEPTED_TYPES = int | float | np.float64 | list | np.ndarray
+ACCEPTED_TYPES = int | float | np.float64 | np.intp | list | np.ndarray 
 
 class Value():
 
@@ -104,7 +104,8 @@ class Value():
         return Value(self.value * other.value)
     
     def __eq__(self, other):
-        return self.value == other.value
+        return np.array_equal(self.value, other.value)
+         
 
 if __name__ == '__main__':
     v = Value(np.array([5]))
