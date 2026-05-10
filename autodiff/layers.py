@@ -1,6 +1,6 @@
-from computational_graph import *
-from typing import Tuple
-from node import DataNode, MatrixMultNode, AddNode, CustomNode
+from autodiff.computational_graph import *
+from typing import Tuple, Literal
+from autodiff.node import DataNode, MatrixMultNode, AddNode, CustomNode
 import numpy as np
 
 
@@ -36,7 +36,13 @@ class Layer(object):
 
 
 class Linear(Layer):
-    def __init__(self, in_shape, out_shape, init_values: Tuple[Value,Value] | None = None, init_mode='random'):
+    def __init__(
+            self, 
+            in_shape, 
+            out_shape, 
+            init_values: Tuple[Value,Value] | None = None, 
+            init_mode : Literal['random','he'] ='random'
+            ):
         
         self.out_shape = out_shape
         self.in_shape = in_shape
@@ -70,7 +76,7 @@ class Linear(Layer):
         std = (2.0 / fan_in) ** 0.5
         W = np.random.randn(*self.matrix_shape) * std
         b = np.zeros(self.bias_shape)
-        return W,b
+        return Value(W),Value(b)
 
     def rand_init(self, in_shape, out_shape) -> Tuple[Value,Value]:
         self.matrix_shape = (out_shape[0], in_shape[0])
