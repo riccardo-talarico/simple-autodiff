@@ -1,14 +1,28 @@
-from layers import *
-from losses import *
+from autodiff.layers import *
+from autodiff.losses import *
+from autodiff.datasets import *
+
+
+def one_hot_encode(x:Value, num_classes: int):
+    val = []
+    for i in range(num_classes):
+        if i==x.value:
+            val.append(1)
+        else:
+            val.append(0)
+    return Value(val).transpose()
+
 
 class Model(object):
 
-    def __init__(self, layers: List[Layer] = []):
+    def __init__(self, layers: List[Layer] = [], classification:bool=False):
         self.graph = ComputationalGraph()
         self.layers : List[Layer] = []
         self.loss = None
         self.output_node = None
         self.parameters : List[DataNode] = []
+        self.classification = classification
+        self.fitted = False
         self.input = DataNode(Value.ERROR, requires_grad=False)
         
         for layer in layers:
@@ -55,78 +69,63 @@ class Model(object):
     def predict(self, value : Value=None):
         self.input.value = value if value else self.input.value
         out = self.graph.forward()
+        if self.classification and self.n_classes:
+            #debug: 
+            #print(f"Not argmaxed output is {out.value}")
+            out = Value(np.float128(np.argmax(out.value)))
+            
         return out
     
-    #TODO: fix this batch size issue
+    def _extract_num_classes(self, lis: List[Value]):
+        num = 0
+        lis = list(map(lambda x: x.value, lis))
+        for i,el in enumerate(lis):
+            if el not in lis[:i]:
+                num += 1
+        return num
+
     def train(self, X: List[Value], y: List[Value], batch_size : int, num_epochs: int, lr: Value):
+        if self.classification:
+            self.n_classes = self._extract_num_classes(y)
+            y = list(map(lambda x: one_hot_encode(x, self.n_classes), y))
         i = 0
+        total_instances = len(X)
+        self.loss_history = []
         for epoch in range(num_epochs):
-            for x,y_ in zip(X[i:i+batch_size],y[i:i+batch_size]):
+            epoch_loss = Value.ERROR
+            for start in range(0, total_instances, batch_size):
+                end = min(start + batch_size, total_instances)
+
+                X_batch = X[start:end]
+                y_batch = y[start:end]
+
                 self.graph.zero_grad()
-                self.input.value = x
-                self.loss.add_label_value(y_)
-                out = self.graph.forward()
-                out_loss = self.loss.forward()
+                self.loss.zero_grad()
+                for x,y_ in zip(X_batch,y_batch):
+                    self.input.value = x
+                    self.loss.add_label_value(y_)
+                    out = self.graph.forward()
+                    out_loss = self.loss.forward()
 
-                loss_grad = self.loss.backward()
-                grad = self.graph.backward(grad_init=False)
-                self.step(lr)
-            i += (batch_size % len(X))
+                    loss_grad = self.loss.backward()
+                    grad = self.graph.backward(grad_init=False)
+                    #print(f"DEBUG, out_loss={out_loss}")
+                    epoch_loss = epoch_loss + out_loss if epoch_loss is not Value.ERROR else out_loss
+                
+                self.step(lr * Value(1/len(X_batch)))
+            epoch_loss = epoch_loss * Value(1/total_instances)
+            self.loss_history.append(epoch_loss)
+        self.fitted = True
 
-if __name__ == '__main__':
-    linear_regression = Model([
-        Linear((1,1),(1,1))
-        ])
-    
-    linear_regression.add_loss(MeanSquaredError())
-
-    # Linear Regression Dataset
-    X = np.random.randint(low=0,high=1000,size=100)
-    X = (X - np.mean(X,keepdims=True)) / np.std(X)
-    y = 2*X+np.ones_like(X) 
-
-    X,y = X.tolist(),y.tolist()
-
-    X = list(map(lambda x: Value(x), X))
-    y = list(map(lambda x: Value(x), y))
-
-    #data = Dataset(X,y)
-
-    
-    for param in linear_regression.parameters:
-        print(param.value)
-
-    linear_regression.train(X,y,64,100,Value(1e-1))
-    print(linear_regression.predict(Value(2)))
-    for param in linear_regression.parameters:
-        print(param.value)
-
-
-    neural_net = Model([
-        Linear((2,1),(5,1)),
-        ReLu((5,1)),
-        Linear((5,1),(1,1))
-    ])
-
-    neural_net.add_loss(MeanSquaredError())
-    X = [np.array([[1,0]]).T, np.array([[0,0]]).T, np.array([[0,1]]).T,np.array([[1,1]]).T]
-    y = [np.array([[1]]),np.array([[0]]),np.array([[1]]),np.array([[0]])]
-
-    X = list(map(lambda x: Value(x), X))
-    y = list(map(lambda x: Value(x), y))
-
-
-    print(f"Params before:")
-    for param in neural_net.parameters:
-        print(param.value)
-
-    neural_net.train(X,y, 4, 1500, Value(5e-2))
-    print("Params after:")
-    for param in neural_net.parameters:
-        print(param.value)
-
-    for x in X:
-        print(f"Value: {x}\n prediction: {neural_net.predict(x)}")
-    
-
-               
+    def plot_learning_curve(self):
+        if not self.fitted:
+            print("Cannot plot learning curve of untrained model.")
+            return
+        else:
+            loss_history = list(map(lambda x: x.value, self.loss_history))
+            loss_history = list(map(lambda x: x.reshape(-1), loss_history))
+            plt.plot(loss_history)
+            plt.xlabel("Epoch")
+            plt.ylabel("Loss")
+            plt.title("Learning Curve")
+            plt.show()
