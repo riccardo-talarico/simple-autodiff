@@ -1,11 +1,11 @@
 import numpy as np
 
-ACCEPTED_TYPES = int | float | np.float64 | np.intp | list | np.ndarray 
+ACCEPTED_TYPES = int | float | np.float64 | np.float128 | np.intp | list | np.ndarray 
 
 class Value():
 
     ERROR = np.nan
-    ZERO = np.float64(None)
+    ZERO = np.float128(None)
 
     def __init__(self, value: ACCEPTED_TYPES):
         self.value = self._adjust_shape(value)
@@ -13,9 +13,9 @@ class Value():
 
     def _adjust_shape(self, value):
         _type = type(value)
-        if _type == int or _type == float:
-            return np.array([[np.float64(value)]])
-        elif _type == np.float64:
+        if _type == int or _type == float or _type == np.float64:
+            return np.array([[np.float128(value)]])
+        elif _type == np.float128:
             return np.array([[value]])
         elif _type == list:
             # In case it gets an empty list:
@@ -24,7 +24,7 @@ class Value():
             
             # Check if it's list of lists
             self.shape = self._infer_shape(value)
-            value = self._convert_to_float64(value)
+            value = self._convert_to_float128(value)
 
             if len(self.shape) == 1: 
                 value = [value]
@@ -32,9 +32,9 @@ class Value():
         
         elif _type == np.ndarray:
             if len(value.shape) == 0:
-                value = np.array([[value]], dtype=np.float64)
+                value = np.array([[value]], dtype=np.float128)
             elif len(value.shape) == 1:
-                value = np.array([value], dtype=np.float64) 
+                value = np.array([value], dtype=np.float128) 
             return value
         else:
             raise ValueError(f"Unexpected type for the value. Accepted types are {ACCEPTED_TYPES}, got {type(value)}.")
@@ -64,16 +64,16 @@ class Value():
         # The shape of the current list is its length + the shape of its children
         return (len(lis),) + reference_shape
 
-    def _convert_to_float64(self, data):
+    def _convert_to_float128(self, data):
         
         if type(data) != list:
             try:
-                return np.float64(data)
+                return np.float128(data)
             except Exception as e:
-                print(f"Error during conversion of data into np.float64: {e}")
+                print(f"Error during conversion of data into np.float128: {e}")
                 exit(1)
         else:
-            return [self._convert_to_float64(el) for el in data]
+            return [self._convert_to_float128(el) for el in data]
 
 
     def transpose(self):
