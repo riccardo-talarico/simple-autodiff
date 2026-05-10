@@ -17,8 +17,11 @@ class Loss():
         return self.graph.forward()
 
     def backward(self):
-        self.graph.zero_grad()
+        #self.graph.zero_grad()
         return self.graph.backward()
+    
+    def zero_grad(self):
+        self.graph.zero_grad()
 
 
 
@@ -59,7 +62,8 @@ class MeanSquaredError(Loss):
 def forward_ce(self: Node, input:List[Value]):
     self.y = input[0].value
     self.p = input[1].value
-    self.cross_entropy = np.sum(self.y * np.log(self.p))
+    eps = 1e-12
+    self.cross_entropy = -np.sum(self.y * np.log(self.p+eps))
     return Value(self.cross_entropy)
 
 def backward_ce(self:Node, inputs:List[Value], upstream_grad:Value):
@@ -83,7 +87,7 @@ class CrossEntropy(Loss):
     def build(self, input_node:Node):
         self.graph.add_edge(self.label_node, self.cross_entropy_node)
         self.graph.add_edge(input_node, self.cross_entropy_node)
-        self.graph.add_node(self.cross_entropy_node, is_output=True)
+        self.graph.add_node(self.cross_entropy_node, is_output=True, is_input=True)
         return self.output_node
     
 
